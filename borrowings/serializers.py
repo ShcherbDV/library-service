@@ -23,7 +23,9 @@ class BorrowingCreateSerializer(BorrowingSerializer):
         book = self.attrs.get("book")
 
         if book.inventory <= 0:
-            raise serializers.ValidationError({"book": "This book is currently out of stock!"})
+            raise serializers.ValidationError(
+                {"book": "This book is currently out of stock!"}
+            )
         return attrs
 
     def create(self, validated_data):
