@@ -12,3 +12,6 @@ class Borrowing(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="borrowings"
     )
+
+    def __str__(self):
+        return f"{self.id} - {self.user.username} borrowed {self.book.title}"
