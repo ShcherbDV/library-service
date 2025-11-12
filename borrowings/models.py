@@ -13,5 +13,11 @@ class Borrowing(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="borrowings"
     )
 
+    @property
+    def is_active(self):
+        if not self.actual_return_date:
+            return True
+        return False
+
     def __str__(self):
         return f"{self.id} - {self.user.username} borrowed {self.book.title}"
