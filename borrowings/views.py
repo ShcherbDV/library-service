@@ -1,12 +1,44 @@
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter, extend_schema_view
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
 from borrowings.models import Borrowing
-from borrowings.serializers import BorrowingSerializer, BorrowingCreateSerializer, BorrowingReturnSerializer
+from borrowings.serializers import (
+    BorrowingSerializer,
+    BorrowingCreateSerializer,
+    BorrowingReturnSerializer,
+)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="user_id",
+                description="Filter borrowings by user id (admin only)",
+                required=False,
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+            ),
+            OpenApiParameter(
+                name="is_active",
+                description="Filter active borrowings (true or false)",
+                required=False,
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+            ),
+        ],
+        responses={200: BorrowingSerializer(many=True)},
+        description="List all borrowings (admins can filter by user_id; users see only their own).",
+    ),
+    post=extend_schema(
+        description="Create a new borrowing record. Decreases book inventory by 1.",
+        responses={201: BorrowingSerializer},
+    ),
+)
 class BorrowingListView(generics.ListCreateAPIView):
 
     permission_classes = (IsAuthenticated,)
@@ -30,9 +62,9 @@ class BorrowingListView(generics.ListCreateAPIView):
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
             if is_active.lower() == "true":
-                queryset = queryset.filter(actual_return_date=True)
+                queryset = queryset.filter(actual_return_date__isnull=True)
             elif is_active.lower() == "false":
-                queryset = queryset.filter(actual_return_date=False)
+                queryset = queryset.filter(actual_return_date__isnull=False)
 
         return queryset.order_by("-borrow_date")
 
@@ -56,6 +88,7 @@ class BorrowingReturnView(generics.UpdateAPIView):
         user = self.request.user
         if not user.is_staff and borrowing.user != user:
             from rest_framework.exceptions import PermissionDenied
+
             raise PermissionDenied("You can only return your own borrowings.")
         return borrowing
 
@@ -64,6 +97,7 @@ class BorrowingReturnView(generics.UpdateAPIView):
 
         if borrowing.actual_return_date:
             from rest_framework.exceptions import ValidationError
+
             raise ValidationError("This borrowing has already been returned.")
 
         borrowing.actual_return_date = timezone.now().date()
